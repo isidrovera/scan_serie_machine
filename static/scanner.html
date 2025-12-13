@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Scanner (QR/Barra & OCR)</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="/static/scanner.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" defer></script>
+
+  <!-- ✅ CONFIG -->
+  <script>
+    window.SCANNER_OCR_BASE = "";
+    window.SCANNER_CHECKIN_PATH = "/sat/api/checkin";
+    window.SCANNER_SCAN_BASE = "";
+  </script>
+
+  <script src="/static/scanner.js" defer></script>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <i class="bi bi-qr-code-scan"></i>
+        <div>
+          <h1>Scanner</h1>
+          <div class="small">QR / Barras & OCR con selección de texto (OCR en servidor)</div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Modos">
+        <button class="tab active" id="tab-codes" data-target="codes" aria-selected="true">
+          <i class="bi bi-upc-scan"></i> Códigos
+        </button>
+        <button class="tab" id="tab-ocr" data-target="ocr" aria-selected="false">
+          <i class="bi bi-file-earmark-text"></i> OCR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2 id="panel-title"><i class="bi bi-upc-scan"></i> Lector de Códigos</h2>
+
+        <div class="controls" id="controls-codes">
+          <button class="btn primary" id="btn-start-codes"><i class="bi bi-play-fill"></i> Iniciar</button>
+          <button class="btn" id="btn-stop-codes" disabled><i class="bi bi-stop-fill"></i> Detener</button>
+        </div>
+
+        <div class="controls" id="controls-ocr" style="display:none;">
+          <button class="btn primary" id="btn-take"><i class="bi bi-camera"></i> Tomar foto</button>
+          <button class="btn warn" id="btn-retake" disabled><i class="bi bi-arrow-counterclockwise"></i> Nueva foto</button>
+          <button class="btn ok" id="btn-use-selected" disabled><i class="bi bi-check2-square"></i> Usar selección</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div id="pane-codes">
+          <div id="qr-reader" class="video-shell" aria-label="Región de escaneo"></div>
+          <div class="status" id="status-codes">
+            <i class="bi bi-info-circle"></i> Pulsa "Iniciar" (cámara posterior).
+          </div>
+        </div>
+
+        <div id="pane-ocr" style="display:none;">
+          <div class="video-shell" id="ocr-video-shell" aria-live="polite" aria-label="Vista de cámara OCR">
+            <video id="ocr-video" playsinline autoplay muted></video>
+          </div>
+
+          <div class="canvas-shell" id="ocr-canvas-shell" style="display:none;">
+            <canvas id="ocr-canvas"></canvas>
+          </div>
+
+          <div id="text-layer" style="display:none; margin-top:12px;"></div>
+
+          <div class="status" id="status-ocr">
+            <i class="bi bi-info-circle"></i>
+            Apunta al número de serie y pulsa <b>Tomar foto</b>.
+          </div>
+
+          <div id="selected-text-info" style="display:none; margin-top:8px;">
+            <div class="status ok">
+              <i class="bi bi-check-circle"></i>
+              <div><b>Texto seleccionado:</b> <span id="selected-text-value" class="mono"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2><i class="bi bi-list-check"></i> Resultados</h2>
+        <div class="controls">
+          <button class="btn" id="btn-copy"><i class="bi bi-clipboard"></i> Copiar</button>
+          <button class="btn" id="btn-csv"><i class="bi bi-filetype-csv"></i> CSV</button>
+          <button class="btn danger" id="btn-clear"><i class="bi bi-trash"></i> Limpiar</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="status" id="odoo-status">
+          <i class="bi bi-info-circle"></i> Escanea un código o usa OCR para consultar en Odoo.
+        </div>
+
+        <!-- Manual UI (inyectado por JS) -->
+        <div id="manual-mount"></div>
+
+        <div id="odoo-panel" style="display:none;">
+          <div class="odoo-info">
+            <div class="odoo-row">
+              <span class="odoo-label">Serie</span>
+              <span class="odoo-value" id="odoo-serie">-</span>
+            </div>
+            <div class="odoo-row">
+              <span class="odoo-label">Marca</span>
+              <span class="odoo-value" id="odoo-marca">-</span>
+            </div>
+            <div class="odoo-row">
+              <span class="odoo-label">Modelo</span>
+              <span class="odoo-value" id="odoo-modelo">-</span>
+            </div>
+          </div>
+
+          <div class="controls" style="margin-top:10px;">
+            <button class="btn ok" id="btn-confirm-ok">
+              <i class="bi bi-check2-circle"></i> Confirmar
+            </button>
+            <button class="btn warn" id="btn-confirm-obs" style="display:none;">
+              <i class="bi bi-chat-square-text"></i> Observación
+            </button>
+          </div>
+        </div>
+
+        <div class="pills" style="margin-top:8px;">
+          <span class="chip">Total: <b id="cntTotal">0</b></span>
+          <span class="chip">Únicos: <b id="cntUnique">0</b></span>
+          <span class="chip">Duplicados: <b id="cntDup">0</b></span>
+        </div>
+
+        <div class="scroll" style="margin-top:8px">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="small">Hora</th>
+                <th>Valor</th>
+                <th class="small">Tipo</th>
+                <th class="small">Fuente</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+<!-- ===== MODAL: Confirmar + Observación ===== -->
+<div class="modal-backdrop" id="modal-obs" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-obs-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-obs-title">
+        <i class="bi bi-check2-circle"></i> Confirmar ingreso
+      </h3>
+      <button class="modal-close" id="modal-obs-close" aria-label="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-sub">
+        Serie: <b id="modal-obs-serie">-</b><br>
+        Si escribes algo se registra como <b>OBS</b>; vacío se registra como <b>OK</b>.
+      </div>
+
+      <input id="modal-obs-input" class="input input-fixed"
+             type="text"
+             placeholder="Ej: llegó rota / falta bandeja / pantalla dañada…"
+             autocomplete="off">
+
+      <div class="modal-actions">
+        <button class="btn" id="modal-obs-cancel"><i class="bi bi-x-circle"></i> Cancelar</button>
+        <button class="btn primary" id="modal-obs-confirm"><i class="bi bi-check2-circle"></i> Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Selección de coincidencias (búsqueda parcial) ===== -->
+<div class="modal-backdrop" id="modal-pick" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-pick-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-pick-title">
+        <i class="bi bi-list-ul"></i> Selecciona un equipo
+      </h3>
+      <button class="modal-close" id="modal-pick-close" aria-label="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-sub" id="modal-pick-sub">Resultados:</div>
+      <div class="modal-list" id="modal-pick-list"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="modal-pick-cancel"><i class="bi bi-x-circle"></i> Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

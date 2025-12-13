@@ -1,0 +1,14 @@
+services:
+  scan-serie-machine:
+    build: .
+    container_name: scan_serie_machine
+    restart: unless-stopped
+    ports:
+      - "5005:5005"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 5005
+    volumes:
+      - .:/app
