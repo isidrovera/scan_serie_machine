@@ -13,7 +13,7 @@ load_dotenv()
 
 import requests
 from flask import (
-    Flask, jsonify, Response, request, send_from_directory
+    Flask, jsonify, Response, request, send_from_directory, redirect
 )
 
 from google import genai
@@ -303,7 +303,9 @@ def create_app():
         })
 
     return app
-
+    @app.get("/")
+    def home():
+        return redirect("/scan", code=302)
 
 if __name__ == "__main__":
     app = create_app()
