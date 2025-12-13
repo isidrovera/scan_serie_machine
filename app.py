@@ -16,6 +16,8 @@ from flask import (
     Flask, jsonify, Response, request, send_from_directory, redirect
 )
 
+from werkzeug.exceptions import HTTPException
+
 from google import genai
 from google.genai import types
 
@@ -181,6 +183,12 @@ def create_app():
         return Response(status=204)
 
     # --------------- UI ----------------
+    # ✅ Para que el dominio (/) no devuelva 404
+    @app.get("/")
+    def home():
+        # Mantiene la misma lógica: sirve la UI de scanner
+        return send_from_directory(STATIC_DIR, "scanner.html")
+
     @app.get("/scan")
     def scan_page():
         return send_from_directory(STATIC_DIR, "scanner.html")
@@ -217,8 +225,17 @@ def create_app():
 
         return data
 
+    # ✅ Manejo correcto: no convertir 404/405/etc en 500 "Error interno"
     @app.errorhandler(Exception)
     def handle_any_error(e):
+        # Si es un error HTTP (404/405/etc.), devolverlo tal cual (sin trace)
+        if isinstance(e, HTTPException):
+            return jsonify({
+                "ok": False,
+                "message": e.name,
+                "error": str(e),
+            }), e.code
+
         _logger.exception("[FLASK] Unhandled error: %s", e)
         return jsonify({
             "ok": False,
@@ -303,13 +320,11 @@ def create_app():
         })
 
     return app
-    @app.get("/")
-    def home():
-        return redirect("/scan", code=302)
+
 
 if __name__ == "__main__":
     app = create_app()
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 5005))
-    print(f"Open: http://127.0.0.1:{port}/scan")
+    print(f"Open: http://127.0.0.1:{port}/")
     app.run(host=host, port=port, debug=True)
