@@ -513,7 +513,7 @@ window.addEventListener('load', () => {
   });
 
   // ------------------ PENDIENTES (contador + listar) ------------------
-  const CHECKIN_URL = (window.SCANNER_CHECKIN_PATH || '/sat/api/checkin');
+ window.SCANNER_CHECKIN_PATH = "https://andessolutioncopiers.com/sat/api/checkin";
 
   async function fetchPendientesCount(){
     if(!pendientesCountEl) return;
