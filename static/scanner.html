@@ -28,10 +28,15 @@
     <div class="header-inner">
       <div class="brand">
         <i class="bi bi-qr-code-scan"></i>
+        <button type="button" class="pend-badge" id="btn-pendientes" title="Pendientes (clic para listar)" aria-label="Pendientes (clic para listar)">
+      <span class="pend-label">Pend</span>
+      <span class="pend-count" id="pendientes-count">0</span>
+    </button>
         <div>
           <h1>Scanner</h1>
           <div class="small">QR / Barras & OCR con selección de texto (OCR en servidor)</div>
         </div>
+        
       </div>
 
       <div class="tabs" role="tablist" aria-label="Modos">
@@ -218,6 +223,30 @@
     </div>
   </div>
 </div>
+<!-- ===== MODAL: Pendientes (Modelo + Serie) ===== -->
+<div class="modal-backdrop" id="modal-pending" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-pending-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-pending-title">
+        <i class="bi bi-inbox"></i> Pendientes: <span id="modal-pending-count">0</span>
+      </h3>
+      <button class="modal-close" id="modal-pending-close" aria-label="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-sub" id="modal-pending-sub">Listado (modelo y serie):</div>
+
+      <div class="modal-list" id="modal-pending-list"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="modal-pending-cancel"><i class="bi bi-x-circle"></i> Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 </body>
 </html>

@@ -143,6 +143,17 @@ window.addEventListener('load', () => {
   const modalPickSub = document.getElementById('modal-pick-sub');
   const modalPickList = document.getElementById('modal-pick-list');
 
+  // ✅ Modal Pendientes (nuevo)
+  const btnPendientes = document.getElementById('btn-pendientes');
+  const pendientesCountEl = document.getElementById('pendientes-count');
+
+  const modalPending = document.getElementById('modal-pending');
+  const modalPendingClose = document.getElementById('modal-pending-close');
+  const modalPendingCancel = document.getElementById('modal-pending-cancel');
+  const modalPendingCount = document.getElementById('modal-pending-count');
+  const modalPendingSub = document.getElementById('modal-pending-sub');
+  const modalPendingList = document.getElementById('modal-pending-list');
+
   function showModal(el){
     el.style.display = 'flex';
     el.setAttribute('aria-hidden', 'false');
@@ -156,9 +167,10 @@ window.addEventListener('load', () => {
   function closeAllModals(){
     hideModal(modalObs);
     hideModal(modalPick);
+    if(modalPending) hideModal(modalPending); // ✅ nuevo
   }
 
-  [modalObs, modalPick].forEach(m => {
+  [modalObs, modalPick, modalPending].filter(Boolean).forEach(m => {
     m.addEventListener('click', (ev) => {
       if(ev.target === m) hideModal(m);
     });
@@ -169,6 +181,9 @@ window.addEventListener('load', () => {
 
   modalPickClose.addEventListener('click', () => hideModal(modalPick));
   modalPickCancel.addEventListener('click', () => hideModal(modalPick));
+
+  if(modalPendingClose) modalPendingClose.addEventListener('click', () => hideModal(modalPending));
+  if(modalPendingCancel) modalPendingCancel.addEventListener('click', () => hideModal(modalPending));
 
   window.addEventListener('keydown', (ev) => {
     if(ev.key === 'Escape') closeAllModals();
@@ -496,6 +511,108 @@ window.addEventListener('load', () => {
       if(v) lookupSerial(v, 'manual', 'MANUAL', null);
     }
   });
+
+  // ------------------ PENDIENTES (contador + listar) ------------------
+  const CHECKIN_URL = (window.SCANNER_CHECKIN_PATH || '/sat/api/checkin');
+
+  async function fetchPendientesCount(){
+    if(!pendientesCountEl) return;
+    try{
+      const resp = await fetch(CHECKIN_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'count' })
+      });
+      const data = await resp.json();
+      if(data && data.ok){
+        const n = Number(data.pendientes_count || 0);
+        pendientesCountEl.textContent = String(n);
+        if(modalPendingCount) modalPendingCount.textContent = String(n);
+      }
+    }catch(_){}
+  }
+
+  function renderPendingItems(items){
+    if(!modalPendingList) return;
+    modalPendingList.innerHTML = '';
+
+    if(!items || !items.length){
+      modalPendingList.innerHTML = `<div class="small">No hay pendientes.</div>`;
+      return;
+    }
+
+    items.forEach(it => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pick-btn';
+      btn.innerHTML = `
+        <div class="pick-top">
+          <div>
+            <div style="font-weight:900;">${escapeHtml(it.modelo || '-')}</div>
+            <div class="pick-meta mono">${escapeHtml(it.serie || '-')}</div>
+          </div>
+          <div class="small" style="white-space:nowrap;">
+            <i class="bi bi-arrow-right-circle"></i> Usar
+          </div>
+        </div>
+      `;
+
+      btn.addEventListener('click', () => {
+        hideModal(modalPending);
+
+        const serie = (it.serie || '').trim();
+        if(!serie) return;
+
+        // Usa tu flujo normal sin tocar lógica
+        manualInput.value = serie;
+        lookupSerial(serie, 'manual', 'MANUAL', 'exact');
+      });
+
+      modalPendingList.appendChild(btn);
+    });
+  }
+
+  async function openPendientesList(){
+    if(!modalPending) return;
+
+    if(modalPendingSub) modalPendingSub.textContent = 'Cargando lista…';
+    if(modalPendingList) modalPendingList.innerHTML = '';
+    showModal(modalPending);
+
+    try{
+      const resp = await fetch(CHECKIN_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'list_pending', limit: 200, offset: 0 })
+      });
+      const data = await resp.json();
+
+      if(!data || !data.ok){
+        if(modalPendingSub) modalPendingSub.textContent = 'No se pudo cargar.';
+        return;
+      }
+
+      const n = Number(data.pendientes_count || 0);
+      if(pendientesCountEl) pendientesCountEl.textContent = String(n);
+      if(modalPendingCount) modalPendingCount.textContent = String(n);
+
+      if(modalPendingSub){
+        modalPendingSub.innerHTML = `Mostrando <b>${data.count || 0}</b> (máx ${data.limit || 200}).`;
+      }
+
+      renderPendingItems(data.items || []);
+    }catch(_){
+      if(modalPendingSub) modalPendingSub.textContent = 'Error cargando lista.';
+    }
+  }
+
+  if(btnPendientes){
+    btnPendientes.addEventListener('click', openPendientesList);
+  }
+
+  // refresco periódico
+  fetchPendientesCount();
+  setInterval(fetchPendientesCount, 20000);
 
   // ------------------ CÓDIGOS (html5-qrcode) ------------------
   const statusCodes = document.getElementById('status-codes');
