@@ -143,7 +143,7 @@ window.addEventListener('load', () => {
   const modalPickSub = document.getElementById('modal-pick-sub');
   const modalPickList = document.getElementById('modal-pick-list');
 
-  // ✅ Modal Pendientes (nuevo)
+  // ✅ Modal Pendientes
   const btnPendientes = document.getElementById('btn-pendientes');
   const pendientesCountEl = document.getElementById('pendientes-count');
 
@@ -167,7 +167,7 @@ window.addEventListener('load', () => {
   function closeAllModals(){
     hideModal(modalObs);
     hideModal(modalPick);
-    if(modalPending) hideModal(modalPending); // ✅ nuevo
+    if(modalPending) hideModal(modalPending);
   }
 
   [modalObs, modalPick, modalPending].filter(Boolean).forEach(m => {
@@ -189,11 +189,10 @@ window.addEventListener('load', () => {
     if(ev.key === 'Escape') closeAllModals();
   });
 
-  // ----------- Campo Observación (antes inyectado, ahora modal) -----------
-  // mantenemos variable obsInput para no tocar lógica de confirm
+  // ----------- Campo Observación (modal) -----------
   let obsInput = { value: '' };
 
-  // ----------- UI Manual (inyectado, pero sin estilos inline) -----------
+  // ----------- UI Manual (inyectado) -----------
   const manualMount = document.getElementById('manual-mount');
 
   const manualWrap = document.createElement('div');
@@ -223,12 +222,10 @@ window.addEventListener('load', () => {
   const btnManualSearch = manualWrap.querySelector('#btn-manual-search');
   const btnManualClear = manualWrap.querySelector('#btn-manual-clear');
 
-  // ✅ FIX: evitar descuadre al abrir teclado + mantener tamaño
   manualInput.addEventListener('focus', () => {
     setTimeout(() => manualInput.scrollIntoView({ block:'nearest' }), 50);
   });
 
-  // ✅ ultra rápido: solo números (si pegas letras, las quita)
   manualInput.addEventListener('input', () => {
     manualInput.value = (manualInput.value || '').replace(/\D+/g,'');
   });
@@ -245,7 +242,6 @@ window.addEventListener('load', () => {
     return /^\d{1,4}$/.test(vtrim) ? 'partial' : 'exact';
   }
 
-  // ✅ ahora los parciales se muestran en MODAL (misma lógica)
   function renderPartialResults(records, sourceForSelect='manual'){
     clearOdooPanel();
 
@@ -450,7 +446,6 @@ window.addEventListener('load', () => {
     }
   }
 
-  // ✅ Botón Confirmar: abre modal (misma lógica, solo UI)
   btnConfirmObs.style.display = 'none';
   btnConfirmOk.addEventListener('click', () => {
     if(!lastScan){
@@ -513,23 +508,30 @@ window.addEventListener('load', () => {
   });
 
   // ------------------ PENDIENTES (contador + listar) ------------------
- window.SCANNER_CHECKIN_PATH = "https://andessolutioncopiers.com/sat/api/checkin";
+  const CHECKIN_URL = window.SCANNER_CHECKIN_PATH || '/sat/api/checkin';
+  console.log('[PEND] CHECKIN_URL=', CHECKIN_URL);
 
   async function fetchPendientesCount(){
     if(!pendientesCountEl) return;
     try{
+      console.log('[PEND][COUNT] POST', CHECKIN_URL);
       const resp = await fetch(CHECKIN_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ action:'count' })
       });
-      const data = await resp.json();
+      const txt = await resp.text();
+      console.log('[PEND][COUNT] status=', resp.status, 'body=', txt);
+
+      const data = JSON.parse(txt);
       if(data && data.ok){
         const n = Number(data.pendientes_count || 0);
         pendientesCountEl.textContent = String(n);
         if(modalPendingCount) modalPendingCount.textContent = String(n);
       }
-    }catch(_){}
+    }catch(e){
+      console.error('[PEND][COUNT][ERR]', e);
+    }
   }
 
   function renderPendingItems(items){
@@ -563,7 +565,6 @@ window.addEventListener('load', () => {
         const serie = (it.serie || '').trim();
         if(!serie) return;
 
-        // Usa tu flujo normal sin tocar lógica
         manualInput.value = serie;
         lookupSerial(serie, 'manual', 'MANUAL', 'exact');
       });
@@ -580,12 +581,16 @@ window.addEventListener('load', () => {
     showModal(modalPending);
 
     try{
+      console.log('[PEND][LIST] POST', CHECKIN_URL);
       const resp = await fetch(CHECKIN_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ action:'list_pending', limit: 200, offset: 0 })
       });
-      const data = await resp.json();
+      const txt = await resp.text();
+      console.log('[PEND][LIST] status=', resp.status, 'body=', txt);
+
+      const data = JSON.parse(txt);
 
       if(!data || !data.ok){
         if(modalPendingSub) modalPendingSub.textContent = 'No se pudo cargar.';
@@ -601,7 +606,8 @@ window.addEventListener('load', () => {
       }
 
       renderPendingItems(data.items || []);
-    }catch(_){
+    }catch(e){
+      console.error('[PEND][LIST][ERR]', e);
       if(modalPendingSub) modalPendingSub.textContent = 'Error cargando lista.';
     }
   }
@@ -610,7 +616,6 @@ window.addEventListener('load', () => {
     btnPendientes.addEventListener('click', openPendientesList);
   }
 
-  // refresco periódico
   fetchPendientesCount();
   setInterval(fetchPendientesCount, 20000);
 
@@ -843,8 +848,6 @@ window.addEventListener('load', () => {
       }
 
       setStatusOcr('No se detectó serie automática. (Selección manual pendiente)', true);
-      // Tu lógica original dejaba esto como pendiente:
-      // btnUseSelected.disabled = false; etc. (si implementas selección)
     }catch(e){
       setStatusOcr('Error OCR: ' + (e && e.message ? e.message : e), false, true);
     }
