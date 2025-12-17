@@ -49,6 +49,7 @@ window.addEventListener('load', () => {
   document.getElementById('btn-copy').addEventListener('click', async ()=>{
     const lines = list.map(r => r.value);
     await navigator.clipboard.writeText(lines.join('\n'));
+    console.log('[UI] Copiado al portapapeles', lines.length);
   });
 
   document.getElementById('btn-csv').addEventListener('click', ()=>{
@@ -63,9 +64,13 @@ window.addEventListener('load', () => {
     a.href = URL.createObjectURL(blob);
     a.download = `lecturas_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
     a.click();
+    console.log('[UI] CSV generado');
   });
 
-  document.getElementById('btn-clear').addEventListener('click', resetResultsTable);
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    console.log('[UI] Limpiar');
+    resetResultsTable();
+  });
 
   // ------------------ tabs ------------------
   const tabCodes = document.getElementById('tab-codes');
@@ -89,6 +94,8 @@ window.addEventListener('load', () => {
     panelTitle.innerHTML = isCodes
       ? '<i class="bi bi-upc-scan"></i> Lector de Códigos'
       : '<i class="bi bi-file-earmark-text"></i> OCR con selección';
+
+    console.log('[TAB]', which);
 
     if(isCodes){
       stopOcrCamera();
@@ -143,7 +150,7 @@ window.addEventListener('load', () => {
   const modalPickSub = document.getElementById('modal-pick-sub');
   const modalPickList = document.getElementById('modal-pick-list');
 
-  // ✅ Modal Pendientes
+  // ✅ Pendientes (badge + modal)
   const btnPendientes = document.getElementById('btn-pendientes');
   const pendientesCountEl = document.getElementById('pendientes-count');
 
@@ -155,11 +162,13 @@ window.addEventListener('load', () => {
   const modalPendingList = document.getElementById('modal-pending-list');
 
   function showModal(el){
+    if(!el) return;
     el.style.display = 'flex';
     el.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
   }
   function hideModal(el){
+    if(!el) return;
     el.style.display = 'none';
     el.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
@@ -167,7 +176,7 @@ window.addEventListener('load', () => {
   function closeAllModals(){
     hideModal(modalObs);
     hideModal(modalPick);
-    if(modalPending) hideModal(modalPending);
+    hideModal(modalPending);
   }
 
   [modalObs, modalPick, modalPending].filter(Boolean).forEach(m => {
@@ -176,23 +185,23 @@ window.addEventListener('load', () => {
     });
   });
 
-  modalObsClose.addEventListener('click', () => hideModal(modalObs));
-  modalObsCancel.addEventListener('click', () => hideModal(modalObs));
+  modalObsClose && modalObsClose.addEventListener('click', () => hideModal(modalObs));
+  modalObsCancel && modalObsCancel.addEventListener('click', () => hideModal(modalObs));
 
-  modalPickClose.addEventListener('click', () => hideModal(modalPick));
-  modalPickCancel.addEventListener('click', () => hideModal(modalPick));
+  modalPickClose && modalPickClose.addEventListener('click', () => hideModal(modalPick));
+  modalPickCancel && modalPickCancel.addEventListener('click', () => hideModal(modalPick));
 
-  if(modalPendingClose) modalPendingClose.addEventListener('click', () => hideModal(modalPending));
-  if(modalPendingCancel) modalPendingCancel.addEventListener('click', () => hideModal(modalPending));
+  modalPendingClose && modalPendingClose.addEventListener('click', () => hideModal(modalPending));
+  modalPendingCancel && modalPendingCancel.addEventListener('click', () => hideModal(modalPending));
 
   window.addEventListener('keydown', (ev) => {
     if(ev.key === 'Escape') closeAllModals();
   });
 
-  // ----------- Campo Observación (modal) -----------
+  // ----------- Campo Observación (antes inyectado, ahora modal) -----------
   let obsInput = { value: '' };
 
-  // ----------- UI Manual (inyectado) -----------
+  // ----------- UI Manual (inyectado, pero sin estilos inline) -----------
   const manualMount = document.getElementById('manual-mount');
 
   const manualWrap = document.createElement('div');
@@ -320,6 +329,8 @@ window.addEventListener('load', () => {
     const token = ++lastLookupToken;
 
     try{
+      console.log('[LOOKUP] -> /api/scan', {value:vtrim, source, finalMode});
+
       const resp = await fetch('/api/scan', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -337,6 +348,7 @@ window.addEventListener('load', () => {
       if(!data.ok || !data.odoo){
         clearOdooPanel();
         setOdooStatus(data.message || 'No se pudo validar en el servidor.', false, true);
+        console.warn('[LOOKUP] servidor no-ok', data);
         return;
       }
 
@@ -344,6 +356,7 @@ window.addEventListener('load', () => {
       if(!o.ok){
         clearOdooPanel();
         setOdooStatus(o.message || 'No se pudo validar en Odoo.', false, true);
+        console.warn('[LOOKUP] odoo no-ok', o);
         return;
       }
 
@@ -382,6 +395,7 @@ window.addEventListener('load', () => {
     }catch(e){
       clearOdooPanel();
       setOdooStatus('Error al contactar servidor: ' + (e && e.message ? e.message : e), false, true);
+      console.error('[LOOKUP] ERROR', e);
     }
   }
 
@@ -413,6 +427,8 @@ window.addEventListener('load', () => {
     setOdooStatus('Registrando check de ingreso…');
 
     try{
+      console.log('[CONFIRM] -> /api/scan', {value:lastScan.value, source:lastScan.source, status, observation});
+
       const resp = await fetch('/api/scan', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -429,12 +445,14 @@ window.addEventListener('load', () => {
 
       if(!data.ok || !data.odoo){
         setOdooStatus(data.message || 'No se pudo registrar en el servidor.', false, true);
+        console.warn('[CONFIRM] servidor no-ok', data);
         return;
       }
 
       const o = data.odoo;
       if(!o.ok){
         setOdooStatus(o.message || 'No se pudo registrar en Odoo.', false, true);
+        console.warn('[CONFIRM] odoo no-ok', o);
         return;
       }
 
@@ -443,9 +461,11 @@ window.addEventListener('load', () => {
 
     }catch(e){
       setOdooStatus('Error al contactar servidor: ' + (e && e.message ? e.message : e), false, true);
+      console.error('[CONFIRM] ERROR', e);
     }
   }
 
+  // ✅ Botón Confirmar: abre modal
   btnConfirmObs.style.display = 'none';
   btnConfirmOk.addEventListener('click', () => {
     if(!lastScan){
@@ -508,29 +528,45 @@ window.addEventListener('load', () => {
   });
 
   // ------------------ PENDIENTES (contador + listar) ------------------
-  const CHECKIN_URL = window.SCANNER_CHECKIN_PATH || '/sat/api/checkin';
-  console.log('[PEND] CHECKIN_URL=', CHECKIN_URL);
+  const CHECKIN_URL = (window.SCANNER_CHECKIN_PATH || '').trim();
+
+  function logPend(...args){ console.log('[PEND]', ...args); }
+  function warnPend(...args){ console.warn('[PEND]', ...args); }
+  function errPend(...args){ console.error('[PEND]', ...args); }
+
+  logPend('SCANNER_CHECKIN_PATH =', CHECKIN_URL);
 
   async function fetchPendientesCount(){
     if(!pendientesCountEl) return;
+
+    if(!CHECKIN_URL){
+      warnPend('SCANNER_CHECKIN_PATH vacío. No puedo contar.');
+      return;
+    }
+
     try{
-      console.log('[PEND][COUNT] POST', CHECKIN_URL);
+      logPend('POST count ->', CHECKIN_URL);
+
       const resp = await fetch(CHECKIN_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ action:'count' })
       });
-      const txt = await resp.text();
-      console.log('[PEND][COUNT] status=', resp.status, 'body=', txt);
 
-      const data = JSON.parse(txt);
+      logPend('count status =', resp.status);
+
+      const data = await resp.json();
+      logPend('count data =', data);
+
       if(data && data.ok){
         const n = Number(data.pendientes_count || 0);
         pendientesCountEl.textContent = String(n);
         if(modalPendingCount) modalPendingCount.textContent = String(n);
+      }else{
+        warnPend('count respuesta no-ok', data);
       }
     }catch(e){
-      console.error('[PEND][COUNT][ERR]', e);
+      errPend('count ERROR', e);
     }
   }
 
@@ -576,24 +612,33 @@ window.addEventListener('load', () => {
   async function openPendientesList(){
     if(!modalPending) return;
 
+    if(!CHECKIN_URL){
+      if(modalPendingSub) modalPendingSub.textContent = 'URL checkin no configurada.';
+      showModal(modalPending);
+      warnPend('SCANNER_CHECKIN_PATH vacío.');
+      return;
+    }
+
     if(modalPendingSub) modalPendingSub.textContent = 'Cargando lista…';
     if(modalPendingList) modalPendingList.innerHTML = '';
     showModal(modalPending);
 
     try{
-      console.log('[PEND][LIST] POST', CHECKIN_URL);
+      logPend('POST list_pending ->', CHECKIN_URL);
+
       const resp = await fetch(CHECKIN_URL, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ action:'list_pending', limit: 200, offset: 0 })
       });
-      const txt = await resp.text();
-      console.log('[PEND][LIST] status=', resp.status, 'body=', txt);
 
-      const data = JSON.parse(txt);
+      logPend('list_pending status =', resp.status);
+
+      const data = await resp.json();
+      logPend('list_pending data =', data);
 
       if(!data || !data.ok){
-        if(modalPendingSub) modalPendingSub.textContent = 'No se pudo cargar.';
+        if(modalPendingSub) modalPendingSub.textContent = (data && data.message) ? data.message : 'No se pudo cargar.';
         return;
       }
 
@@ -607,7 +652,7 @@ window.addEventListener('load', () => {
 
       renderPendingItems(data.items || []);
     }catch(e){
-      console.error('[PEND][LIST][ERR]', e);
+      errPend('list_pending ERROR', e);
       if(modalPendingSub) modalPendingSub.textContent = 'Error cargando lista.';
     }
   }
@@ -678,6 +723,7 @@ window.addEventListener('load', () => {
       btnStartCodes.disabled = true;
       btnStopCodes.disabled = false;
       setStatusCodes('Escaneando… cámara posterior.');
+      console.log('[QR] Iniciado');
     }catch(e){
       try{
         await html5qr.start(
@@ -705,8 +751,10 @@ window.addEventListener('load', () => {
         btnStartCodes.disabled = true;
         btnStopCodes.disabled = false;
         setStatusCodes('Escaneando… (fallback) cámara posterior.');
+        console.log('[QR] Iniciado (fallback)');
       }catch(e2){
         setStatusCodes('No se pudo iniciar la cámara: '+e2, false, true);
+        console.error('[QR] ERROR start', e2);
       }
     }
   }
@@ -719,6 +767,7 @@ window.addEventListener('load', () => {
     codesRunning = false;
     btnStartCodes.disabled = false;
     btnStopCodes.disabled = true;
+    console.log('[QR] Stop');
   }
 
   btnStartCodes.addEventListener('click', startCodes);
@@ -771,6 +820,7 @@ window.addEventListener('load', () => {
     currentSelectedText = '';
     textLayer.style.display = 'none';
     textLayer.innerHTML = '';
+    console.log('[OCR] cámara activa');
   }
 
   function stopOcrCamera(){
@@ -780,6 +830,7 @@ window.addEventListener('load', () => {
     }
     ocrVideo.pause();
     ocrVideo.srcObject=null;
+    console.log('[OCR] stop');
   }
 
   function showOcrPhoto(show){
@@ -815,6 +866,8 @@ window.addEventListener('load', () => {
     try{
       const dataUrl = ocrCanvas.toDataURL('image/jpeg', 0.9);
 
+      console.log('[OCR] -> /api/ocr');
+
       const resp = await fetch('/api/ocr', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -824,12 +877,14 @@ window.addEventListener('load', () => {
       if (!resp.ok) {
         const errorText = await resp.text();
         setStatusOcr(`Error del servidor (${resp.status}): ${errorText.substring(0, 120)}`, false, true);
+        console.error('[OCR] servidor status', resp.status, errorText);
         return;
       }
 
       const data = await resp.json();
       if(!data.ok){
         setStatusOcr(data.message || 'Error OCR.', false, true);
+        console.warn('[OCR] no-ok', data);
         return;
       }
 
@@ -850,6 +905,7 @@ window.addEventListener('load', () => {
       setStatusOcr('No se detectó serie automática. (Selección manual pendiente)', true);
     }catch(e){
       setStatusOcr('Error OCR: ' + (e && e.message ? e.message : e), false, true);
+      console.error('[OCR] ERROR', e);
     }
   });
 
