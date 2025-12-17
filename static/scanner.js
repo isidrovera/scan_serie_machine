@@ -20,15 +20,18 @@ window.addEventListener('load', () => {
   function resetResultsTable(){
     list.length = 0;
     seen.clear();
-    tbody.innerHTML = '';
-    cntTotal.textContent = '0';
-    cntUnique.textContent = '0';
-    cntDup.textContent = '0';
+    if (tbody) tbody.innerHTML = '';
+    if (cntTotal) cntTotal.textContent = '0';
+    if (cntUnique) cntUnique.textContent = '0';
+    if (cntDup) cntDup.textContent = '0';
   }
 
   function addRow(value, type, source){
+    if(!tbody || !cntTotal || !cntUnique || !cntDup) return;
+
     const t = new Date();
     list.unshift({ts:t, value, type, source});
+
     const tr = document.createElement('tr');
     tr.innerHTML =
       `<td class="small">${fmtTime(t)}</td>` +
@@ -38,6 +41,7 @@ window.addEventListener('load', () => {
     tbody.prepend(tr);
 
     cntTotal.textContent = (+cntTotal.textContent + 1);
+
     if(!seen.has(value)){
       cntUnique.textContent = (+cntUnique.textContent + 1);
     }else{
@@ -46,13 +50,15 @@ window.addEventListener('load', () => {
     seen.set(value, Date.now());
   }
 
-  document.getElementById('btn-copy').addEventListener('click', async ()=>{
+  const btnCopy = document.getElementById('btn-copy');
+  btnCopy && btnCopy.addEventListener('click', async ()=>{
     const lines = list.map(r => r.value);
     await navigator.clipboard.writeText(lines.join('\n'));
     console.log('[UI] Copiado al portapapeles', lines.length);
   });
 
-  document.getElementById('btn-csv').addEventListener('click', ()=>{
+  const btnCsv = document.getElementById('btn-csv');
+  btnCsv && btnCsv.addEventListener('click', ()=>{
     const rows = [['timestamp','valor','tipo','fuente'],
       ...list.map(r => [r.ts.toISOString(), r.value, r.type||'', r.source||''])
     ];
@@ -67,7 +73,8 @@ window.addEventListener('load', () => {
     console.log('[UI] CSV generado');
   });
 
-  document.getElementById('btn-clear').addEventListener('click', () => {
+  const btnClear = document.getElementById('btn-clear');
+  btnClear && btnClear.addEventListener('click', () => {
     console.log('[UI] Limpiar');
     resetResultsTable();
   });
@@ -83,17 +90,19 @@ window.addEventListener('load', () => {
 
   function activateTab(which){
     const isCodes = which === 'codes';
-    tabCodes.classList.toggle('active', isCodes);
-    tabOcr.classList.toggle('active', !isCodes);
-    tabCodes.setAttribute('aria-selected', isCodes ? 'true' : 'false');
-    tabOcr.setAttribute('aria-selected', !isCodes ? 'true' : 'false');
-    paneCodes.style.display = isCodes ? '' : 'none';
-    paneOcr.style.display = !isCodes ? '' : 'none';
-    controlsCodes.style.display = isCodes ? '' : 'none';
-    controlsOcr.style.display = !isCodes ? '' : 'none';
-    panelTitle.innerHTML = isCodes
-      ? '<i class="bi bi-upc-scan"></i> Lector de Códigos'
-      : '<i class="bi bi-file-earmark-text"></i> OCR con selección';
+    tabCodes && tabCodes.classList.toggle('active', isCodes);
+    tabOcr && tabOcr.classList.toggle('active', !isCodes);
+    tabCodes && tabCodes.setAttribute('aria-selected', isCodes ? 'true' : 'false');
+    tabOcr && tabOcr.setAttribute('aria-selected', !isCodes ? 'true' : 'false');
+    if (paneCodes) paneCodes.style.display = isCodes ? '' : 'none';
+    if (paneOcr) paneOcr.style.display = !isCodes ? '' : 'none';
+    if (controlsCodes) controlsCodes.style.display = isCodes ? '' : 'none';
+    if (controlsOcr) controlsOcr.style.display = !isCodes ? '' : 'none';
+    if (panelTitle){
+      panelTitle.innerHTML = isCodes
+        ? '<i class="bi bi-upc-scan"></i> Lector de Códigos'
+        : '<i class="bi bi-file-earmark-text"></i> OCR con selección';
+    }
 
     console.log('[TAB]', which);
 
@@ -106,8 +115,8 @@ window.addEventListener('load', () => {
     }
   }
 
-  tabCodes.addEventListener('click', () => activateTab('codes'));
-  tabOcr.addEventListener('click', () => activateTab('ocr'));
+  tabCodes && tabCodes.addEventListener('click', () => activateTab('codes'));
+  tabOcr && tabOcr.addEventListener('click', () => activateTab('ocr'));
 
   // ------------------ Panel Odoo ------------------
   const odooStatus = document.getElementById('odoo-status');
@@ -121,6 +130,7 @@ window.addEventListener('load', () => {
   let lastScan = null;
 
   function setOdooStatus(msg, ok=false, err=false){
+    if(!odooStatus) return;
     odooStatus.className = 'status' + (ok ? ' ok' : err ? ' err' : '');
     odooStatus.innerHTML =
       (ok ? '<i class="bi bi-check-circle"></i> '
@@ -129,10 +139,10 @@ window.addEventListener('load', () => {
   }
 
   function clearOdooPanel(){
-    odooPanel.style.display = 'none';
-    odooSerie.textContent = '-';
-    odooMarca.textContent = '-';
-    odooModelo.textContent = '-';
+    if (odooPanel) odooPanel.style.display = 'none';
+    if (odooSerie) odooSerie.textContent = '-';
+    if (odooMarca) odooMarca.textContent = '-';
+    if (odooModelo) odooModelo.textContent = '-';
     lastScan = null;
   }
 
@@ -201,7 +211,7 @@ window.addEventListener('load', () => {
   // ----------- Campo Observación (antes inyectado, ahora modal) -----------
   let obsInput = { value: '' };
 
-  // ----------- UI Manual (inyectado, pero sin estilos inline) -----------
+  // ----------- UI Manual (inyectado) -----------
   const manualMount = document.getElementById('manual-mount');
 
   const manualWrap = document.createElement('div');
@@ -225,17 +235,17 @@ window.addEventListener('load', () => {
       Tip: escribe 1 a 4 dígitos numéricos para buscar coincidencias y elegir en lista.
     </div>
   `;
-  manualMount.appendChild(manualWrap);
+  manualMount && manualMount.appendChild(manualWrap);
 
   const manualInput = manualWrap.querySelector('#manual-input');
   const btnManualSearch = manualWrap.querySelector('#btn-manual-search');
   const btnManualClear = manualWrap.querySelector('#btn-manual-clear');
 
-  manualInput.addEventListener('focus', () => {
+  manualInput && manualInput.addEventListener('focus', () => {
     setTimeout(() => manualInput.scrollIntoView({ block:'nearest' }), 50);
   });
 
-  manualInput.addEventListener('input', () => {
+  manualInput && manualInput.addEventListener('input', () => {
     manualInput.value = (manualInput.value || '').replace(/\D+/g,'');
   });
 
@@ -253,6 +263,8 @@ window.addEventListener('load', () => {
 
   function renderPartialResults(records, sourceForSelect='manual'){
     clearOdooPanel();
+
+    if(!modalPickList || !modalPickSub) return;
 
     modalPickList.innerHTML = '';
     modalPickSub.innerHTML = `Se encontraron <b>${records.length}</b> equipos. Elige uno:`;
@@ -284,13 +296,13 @@ window.addEventListener('load', () => {
       btn.addEventListener('click', () => {
         hideModal(modalPick);
 
-        manualInput.value = '';
+        if (manualInput) manualInput.value = '';
         if(obsInput) obsInput.value = '';
 
-        odooSerie.textContent = serie;
-        odooMarca.textContent = marca;
-        odooModelo.textContent = modelo;
-        odooPanel.style.display = '';
+        if (odooSerie) odooSerie.textContent = serie;
+        if (odooMarca) odooMarca.textContent = marca;
+        if (odooModelo) odooModelo.textContent = modelo;
+        if (odooPanel) odooPanel.style.display = '';
 
         lastScan = {
           value: serie,
@@ -324,7 +336,7 @@ window.addEventListener('load', () => {
 
     const finalMode = searchMode || inferSearchMode(vtrim);
     setOdooStatus('Consultando en servidor…');
-    odooPanel.style.display = 'none';
+    if (odooPanel) odooPanel.style.display = 'none';
 
     const token = ++lastLookupToken;
 
@@ -378,10 +390,10 @@ window.addEventListener('load', () => {
         return;
       }
 
-      odooSerie.textContent = rec.serie || vtrim;
-      odooMarca.textContent = rec.marca || '-';
-      odooModelo.textContent = rec.modelo || '-';
-      odooPanel.style.display = '';
+      if (odooSerie) odooSerie.textContent = rec.serie || vtrim;
+      if (odooMarca) odooMarca.textContent = rec.marca || '-';
+      if (odooModelo) odooModelo.textContent = rec.modelo || '-';
+      if (odooPanel) odooPanel.style.display = '';
 
       lastScan = {
         value: rec.serie || vtrim,
@@ -404,14 +416,14 @@ window.addEventListener('load', () => {
     closeAllModals();
 
     clearOdooPanel();
-    manualInput.value = '';
+    if (manualInput) manualInput.value = '';
     if(obsInput) obsInput.value = '';
 
     resetResultsTable();
     setOdooStatus('Listo. Escanea otro código o usa OCR / búsqueda manual.');
 
-    if(tabOcr.classList.contains('active')){
-      btnRetake.click();
+    if(tabOcr && tabOcr.classList.contains('active')){
+      btnRetake && btnRetake.click();
     }
   }
 
@@ -466,19 +478,19 @@ window.addEventListener('load', () => {
   }
 
   // ✅ Botón Confirmar: abre modal
-  btnConfirmObs.style.display = 'none';
-  btnConfirmOk.addEventListener('click', () => {
+  if (btnConfirmObs) btnConfirmObs.style.display = 'none';
+  btnConfirmOk && btnConfirmOk.addEventListener('click', () => {
     if(!lastScan){
       setOdooStatus('No hay lectura para confirmar.', false, true);
       return;
     }
-    modalObsSerie.textContent = lastScan.value || '-';
-    modalObsInput.value = (obsInput && obsInput.value) ? obsInput.value : '';
+    if (modalObsSerie) modalObsSerie.textContent = lastScan.value || '-';
+    if (modalObsInput) modalObsInput.value = (obsInput && obsInput.value) ? obsInput.value : '';
     showModal(modalObs);
-    setTimeout(() => modalObsInput.focus(), 50);
+    setTimeout(() => modalObsInput && modalObsInput.focus(), 50);
   });
 
-  modalObsConfirm.addEventListener('click', async () => {
+  modalObsConfirm && modalObsConfirm.addEventListener('click', async () => {
     if(obsInput) obsInput.value = (modalObsInput.value || '').trim();
     hideModal(modalObs);
     await confirmSerialAuto();
@@ -497,13 +509,13 @@ window.addEventListener('load', () => {
     lookupSerial(v, 'manual', 'MANUAL', null);
   }, 220);
 
-  manualInput.addEventListener('input', () => {
+  manualInput && manualInput.addEventListener('input', () => {
     lastScan = null;
-    odooPanel.style.display = 'none';
+    if (odooPanel) odooPanel.style.display = 'none';
     liveLookup();
   });
 
-  btnManualSearch.addEventListener('click', () => {
+  btnManualSearch && btnManualSearch.addEventListener('click', () => {
     const v = (manualInput.value || '').trim().toUpperCase();
     if(!v){
       setOdooStatus('Escribe una serie o 1-4 dígitos para buscar.', false, true);
@@ -512,14 +524,14 @@ window.addEventListener('load', () => {
     lookupSerial(v, 'manual', 'MANUAL', null);
   });
 
-  btnManualClear.addEventListener('click', () => {
-    manualInput.value = '';
+  btnManualClear && btnManualClear.addEventListener('click', () => {
+    if (manualInput) manualInput.value = '';
     clearOdooPanel();
     if(obsInput) obsInput.value = '';
     setOdooStatus('Escanea un código o usa OCR para consultar en Odoo.');
   });
 
-  manualInput.addEventListener('keydown', (ev) => {
+  manualInput && manualInput.addEventListener('keydown', (ev) => {
     if(ev.key === 'Enter'){
       ev.preventDefault();
       const v = (manualInput.value || '').trim().toUpperCase();
@@ -527,22 +539,32 @@ window.addEventListener('load', () => {
     }
   });
 
-  // ------------------ PENDIENTES (contador + listar) ------------------
-  const CHECKIN_URL = (window.SCANNER_CHECKIN_PATH || '').trim();
+  // ------------------ ✅ PENDIENTES (contador + listar) ------------------
+  // ✅ IMPORTANTE: NO llamar a Odoo directo por CORS.
+  // Llamamos a Flask (mismo origen) y Flask proxea a Odoo.
+  const CHECKIN_URL = '/api/pending';
 
   function logPend(...args){ console.log('[PEND]', ...args); }
   function warnPend(...args){ console.warn('[PEND]', ...args); }
   function errPend(...args){ console.error('[PEND]', ...args); }
 
-  logPend('SCANNER_CHECKIN_PATH =', CHECKIN_URL);
+  logPend('Pendientes endpoint (proxy) =', CHECKIN_URL);
+
+  async function safeJson(resp){
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if(ct.includes('application/json')) return await resp.json();
+    const txt = await resp.text();
+    throw new Error(`Respuesta no-JSON (${resp.status}) ct=${ct} body=${txt.slice(0,200)}`);
+  }
+
+  function setPendCount(n){
+    const val = String(Number(n || 0));
+    if (pendientesCountEl) pendientesCountEl.textContent = val;
+    if (modalPendingCount) modalPendingCount.textContent = val;
+  }
 
   async function fetchPendientesCount(){
     if(!pendientesCountEl) return;
-
-    if(!CHECKIN_URL){
-      warnPend('SCANNER_CHECKIN_PATH vacío. No puedo contar.');
-      return;
-    }
 
     try{
       logPend('POST count ->', CHECKIN_URL);
@@ -555,13 +577,17 @@ window.addEventListener('load', () => {
 
       logPend('count status =', resp.status);
 
-      const data = await resp.json();
+      if(!resp.ok){
+        const t = await resp.text();
+        warnPend('count HTTP no-ok', resp.status, t.slice(0,200));
+        return;
+      }
+
+      const data = await safeJson(resp);
       logPend('count data =', data);
 
       if(data && data.ok){
-        const n = Number(data.pendientes_count || 0);
-        pendientesCountEl.textContent = String(n);
-        if(modalPendingCount) modalPendingCount.textContent = String(n);
+        setPendCount(data.pendientes_count || 0);
       }else{
         warnPend('count respuesta no-ok', data);
       }
@@ -601,7 +627,7 @@ window.addEventListener('load', () => {
         const serie = (it.serie || '').trim();
         if(!serie) return;
 
-        manualInput.value = serie;
+        if (manualInput) manualInput.value = serie;
         lookupSerial(serie, 'manual', 'MANUAL', 'exact');
       });
 
@@ -611,13 +637,6 @@ window.addEventListener('load', () => {
 
   async function openPendientesList(){
     if(!modalPending) return;
-
-    if(!CHECKIN_URL){
-      if(modalPendingSub) modalPendingSub.textContent = 'URL checkin no configurada.';
-      showModal(modalPending);
-      warnPend('SCANNER_CHECKIN_PATH vacío.');
-      return;
-    }
 
     if(modalPendingSub) modalPendingSub.textContent = 'Cargando lista…';
     if(modalPendingList) modalPendingList.innerHTML = '';
@@ -634,7 +653,14 @@ window.addEventListener('load', () => {
 
       logPend('list_pending status =', resp.status);
 
-      const data = await resp.json();
+      if(!resp.ok){
+        const t = await resp.text();
+        errPend('list_pending HTTP no-ok', resp.status, t.slice(0,200));
+        if(modalPendingSub) modalPendingSub.textContent = `Error HTTP ${resp.status}`;
+        return;
+      }
+
+      const data = await safeJson(resp);
       logPend('list_pending data =', data);
 
       if(!data || !data.ok){
@@ -642,9 +668,7 @@ window.addEventListener('load', () => {
         return;
       }
 
-      const n = Number(data.pendientes_count || 0);
-      if(pendientesCountEl) pendientesCountEl.textContent = String(n);
-      if(modalPendingCount) modalPendingCount.textContent = String(n);
+      setPendCount(data.pendientes_count || 0);
 
       if(modalPendingSub){
         modalPendingSub.innerHTML = `Mostrando <b>${data.count || 0}</b> (máx ${data.limit || 200}).`;
@@ -657,9 +681,7 @@ window.addEventListener('load', () => {
     }
   }
 
-  if(btnPendientes){
-    btnPendientes.addEventListener('click', openPendientesList);
-  }
+  btnPendientes && btnPendientes.addEventListener('click', openPendientesList);
 
   fetchPendientesCount();
   setInterval(fetchPendientesCount, 20000);
@@ -672,6 +694,7 @@ window.addEventListener('load', () => {
   let codesRunning = false;
 
   function setStatusCodes(msg, ok=false, err=false){
+    if(!statusCodes) return;
     statusCodes.className = 'status' + (ok ? ' ok' : err ? ' err' : '');
     statusCodes.innerHTML =
       (ok ? '<i class="bi bi-check-circle"></i> '
@@ -709,7 +732,7 @@ window.addEventListener('load', () => {
           }
           seen.set(txt, now);
 
-          manualInput.value = '';
+          if (manualInput) manualInput.value = '';
           if(obsInput) obsInput.value = '';
 
           addRow(txt, 'AUTO', 'códigos');
@@ -720,8 +743,8 @@ window.addEventListener('load', () => {
       );
 
       codesRunning = true;
-      btnStartCodes.disabled = true;
-      btnStopCodes.disabled = false;
+      if (btnStartCodes) btnStartCodes.disabled = true;
+      if (btnStopCodes) btnStopCodes.disabled = false;
       setStatusCodes('Escaneando… cámara posterior.');
       console.log('[QR] Iniciado');
     }catch(e){
@@ -738,7 +761,7 @@ window.addEventListener('load', () => {
             }
             seen.set(txt, now);
 
-            manualInput.value = '';
+            if (manualInput) manualInput.value = '';
             if(obsInput) obsInput.value = '';
 
             addRow(txt, 'AUTO', 'códigos');
@@ -748,8 +771,8 @@ window.addEventListener('load', () => {
           () => {}
         );
         codesRunning = true;
-        btnStartCodes.disabled = true;
-        btnStopCodes.disabled = false;
+        if (btnStartCodes) btnStartCodes.disabled = true;
+        if (btnStopCodes) btnStopCodes.disabled = false;
         setStatusCodes('Escaneando… (fallback) cámara posterior.');
         console.log('[QR] Iniciado (fallback)');
       }catch(e2){
@@ -765,13 +788,13 @@ window.addEventListener('load', () => {
       try{ await html5qr.clear(); }catch(_){}
     }
     codesRunning = false;
-    btnStartCodes.disabled = false;
-    btnStopCodes.disabled = true;
+    if (btnStartCodes) btnStartCodes.disabled = false;
+    if (btnStopCodes) btnStopCodes.disabled = true;
     console.log('[QR] Stop');
   }
 
-  btnStartCodes.addEventListener('click', startCodes);
-  btnStopCodes.addEventListener('click', stopCodes);
+  btnStartCodes && btnStartCodes.addEventListener('click', startCodes);
+  btnStopCodes && btnStopCodes.addEventListener('click', stopCodes);
 
   // ------------------ OCR ------------------
   const ocrVideo = document.getElementById('ocr-video');
@@ -790,6 +813,7 @@ window.addEventListener('load', () => {
   let currentSelectedText = '';
 
   function setStatusOcr(msg, ok=false, err=false){
+    if(!statusOcr) return;
     statusOcr.className = 'status' + (ok ? ' ok' : err ? ' err' : '');
     statusOcr.innerHTML =
       (ok ? '<i class="bi bi-check-circle"></i> '
@@ -810,16 +834,18 @@ window.addEventListener('load', () => {
         audio:false,
       });
     }
-    ocrVideo.srcObject = ocrStream;
-    await ocrVideo.play().catch(()=>{});
+    if (ocrVideo) ocrVideo.srcObject = ocrStream;
+    await (ocrVideo ? ocrVideo.play().catch(()=>{}) : Promise.resolve());
     setStatusOcr('Cámara activa. Apunta y pulsa "Tomar foto".');
-    btnTake.disabled = false;
-    btnRetake.disabled = true;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
+    if (btnTake) btnTake.disabled = false;
+    if (btnRetake) btnRetake.disabled = true;
+    if (btnUseSelected) btnUseSelected.disabled = true;
+    if (selectedTextInfo) selectedTextInfo.style.display = 'none';
     currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
+    if (textLayer){
+      textLayer.style.display = 'none';
+      textLayer.innerHTML = '';
+    }
     console.log('[OCR] cámara activa');
   }
 
@@ -828,18 +854,20 @@ window.addEventListener('load', () => {
       ocrStream.getTracks().forEach(t=>t.stop());
       ocrStream=null;
     }
-    ocrVideo.pause();
-    ocrVideo.srcObject=null;
+    if (ocrVideo){
+      ocrVideo.pause();
+      ocrVideo.srcObject=null;
+    }
     console.log('[OCR] stop');
   }
 
   function showOcrPhoto(show){
-    ocrVideoShell.style.display = show ? 'none' : '';
-    ocrCanvasShell.style.display = show ? '' : 'none';
+    if (ocrVideoShell) ocrVideoShell.style.display = show ? 'none' : '';
+    if (ocrCanvasShell) ocrCanvasShell.style.display = show ? '' : 'none';
   }
 
-  btnTake.addEventListener('click', async ()=>{
-    if(!ocrVideo.videoWidth){
+  btnTake && btnTake.addEventListener('click', async ()=>{
+    if(!ocrVideo || !ocrVideo.videoWidth){
       setStatusOcr('Esperando video…', false, true);
       return;
     }
@@ -847,19 +875,22 @@ window.addEventListener('load', () => {
     const w = ocrVideo.videoWidth;
     const h = ocrVideo.videoHeight;
 
+    if (!ocrCanvas) return;
     ocrCanvas.width = w;
     ocrCanvas.height = h;
     const ctx = ocrCanvas.getContext('2d', { willReadFrequently:true });
     ctx.drawImage(ocrVideo, 0, 0, w, h);
 
     showOcrPhoto(true);
-    btnTake.disabled = true;
-    btnRetake.disabled = false;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
+    if (btnTake) btnTake.disabled = true;
+    if (btnRetake) btnRetake.disabled = false;
+    if (btnUseSelected) btnUseSelected.disabled = true;
+    if (selectedTextInfo) selectedTextInfo.style.display = 'none';
     currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
+    if (textLayer){
+      textLayer.style.display = 'none';
+      textLayer.innerHTML = '';
+    }
 
     setStatusOcr('Enviando imagen al servidor para OCR…');
 
@@ -892,7 +923,7 @@ window.addEventListener('load', () => {
       if(best){
         const cleaned = best.replace(/\s+/g,'').trim();
         if(cleaned){
-          manualInput.value = '';
+          if (manualInput) manualInput.value = '';
           if(obsInput) obsInput.value = '';
 
           addRow(cleaned, 'OCR_AUTO', 'ocr');
@@ -909,15 +940,17 @@ window.addEventListener('load', () => {
     }
   });
 
-  btnRetake.addEventListener('click', ()=>{
+  btnRetake && btnRetake.addEventListener('click', ()=>{
     showOcrPhoto(false);
-    btnTake.disabled = false;
-    btnRetake.disabled = true;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
+    if (btnTake) btnTake.disabled = false;
+    if (btnRetake) btnRetake.disabled = true;
+    if (btnUseSelected) btnUseSelected.disabled = true;
+    if (selectedTextInfo) selectedTextInfo.style.display = 'none';
     currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
+    if (textLayer){
+      textLayer.style.display = 'none';
+      textLayer.innerHTML = '';
+    }
     setStatusOcr('Cámara activa. Apunta y pulsa "Tomar foto".');
   });
 

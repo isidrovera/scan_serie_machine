@@ -13,7 +13,7 @@ load_dotenv()
 
 import requests
 from flask import (
-    Flask, jsonify, Response, request, send_from_directory, redirect
+    Flask, jsonify, Response, request, send_from_directory
 )
 
 from werkzeug.exceptions import HTTPException
@@ -41,8 +41,7 @@ ODOO_CHECKIN_PATH = os.environ.get("ODOO_CHECKIN_PATH", "/sat/api/checkin")
 # Timeout para la llamada a Odoo
 ODOO_TIMEOUT = float(os.environ.get("ODOO_TIMEOUT", "10"))
 
-# ----------------- CORS (para llamar desde Odoo -> Tunnel) -----------------
-# Pon aquí tu dominio de Odoo. Puedes poner "*" para pruebas, pero mejor fijo.
+# ----------------- CORS -----------------
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", ODOO_BASE_URL)
 
 # ----------------- Gemini OCR -----------------
@@ -169,24 +168,22 @@ def create_app():
     # ---------- CORS headers ----------
     @app.after_request
     def add_cors_headers(resp):
-        # Permitir llamadas desde Odoo (o desde donde pongas en CORS_ALLOW_ORIGIN)
         resp.headers["Access-Control-Allow-Origin"] = CORS_ALLOW_ORIGIN
         resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         return resp
 
-    # Preflight OPTIONS (importante en móvil/navegador)
+    # Preflight OPTIONS
     @app.route("/api/ocr", methods=["OPTIONS"])
     @app.route("/api/scan", methods=["OPTIONS"])
+    @app.route("/api/pending", methods=["OPTIONS"])
     @app.route("/health", methods=["OPTIONS"])
     def cors_preflight():
         return Response(status=204)
 
     # --------------- UI ----------------
-    # ✅ Para que el dominio (/) no devuelva 404
     @app.get("/")
     def home():
-        # Mantiene la misma lógica: sirve la UI de scanner
         return send_from_directory(STATIC_DIR, "scanner.html")
 
     @app.get("/scan")
@@ -225,10 +222,9 @@ def create_app():
 
         return data
 
-    # ✅ Manejo correcto: no convertir 404/405/etc en 500 "Error interno"
+    # ✅ Manejo correcto: no convertir 404/405/etc en 500
     @app.errorhandler(Exception)
     def handle_any_error(e):
-        # Si es un error HTTP (404/405/etc.), devolverlo tal cual (sin trace)
         if isinstance(e, HTTPException):
             return jsonify({
                 "ok": False,
@@ -285,6 +281,45 @@ def create_app():
             return jsonify({"ok": False, "message": "Respuesta no válida desde Odoo."}), 502
 
         return jsonify({"ok": True, "odoo": odoo_res})
+
+    # --------------- ✅ API Pendientes (proxy a Odoo) ----------------
+    @app.post("/api/pending")
+    def api_pending():
+        """
+        Espera payload:
+          { action: "count" }
+          { action: "list_pending", limit: 200, offset: 0 }
+        Devuelve lo que Odoo responda, envuelto en {ok: true, ...}
+        """
+        try:
+            data = request.get_json(force=True) or {}
+        except Exception:
+            data = {}
+
+        action = (data.get("action") or "").strip().lower()
+        limit = int(data.get("limit") or 200)
+        offset = int(data.get("offset") or 0)
+
+        if action not in ("count", "list_pending"):
+            return jsonify({"ok": False, "message": "Acción inválida."}), 400
+
+        odoo_payload = {"action": action}
+        if action == "list_pending":
+            odoo_payload.update({"limit": limit, "offset": offset})
+
+        try:
+            odoo_res = call_odoo_checkin(odoo_payload)
+        except requests.exceptions.RequestException as e:
+            return jsonify({"ok": False, "message": f"Error al contactar Odoo: {e}"}), 502
+        except ValueError:
+            return jsonify({"ok": False, "message": "Respuesta no válida desde Odoo."}), 502
+
+        # Si Odoo ya devuelve {ok: true, ...} lo pasamos tal cual, pero aseguramos wrapper ok=True
+        if isinstance(odoo_res, dict) and "ok" in odoo_res:
+            # devolvemos el dict directamente (pero manteniendo ok)
+            return jsonify(odoo_res)
+
+        return jsonify({"ok": True, **(odoo_res if isinstance(odoo_res, dict) else {"data": odoo_res})})
 
     # --------------- API OCR ----------------
     @app.post("/api/ocr")
