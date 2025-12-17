@@ -42,11 +42,16 @@ ODOO_CHECKIN_PATH = os.environ.get("ODOO_CHECKIN_PATH", "/sat/api/checkin")
 ODOO_TIMEOUT = float(os.environ.get("ODOO_TIMEOUT", "10"))
 
 # ----------------- CORS -----------------
+# Nota: como el navegador hablará con Flask (mismo origen), CORS casi no molesta,
+# pero lo dejamos para cuando incrustes desde Odoo.
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", ODOO_BASE_URL)
 
 # ----------------- Gemini OCR -----------------
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 _GEMINI_CLIENT = None
+
+# ✅ IMPORTANTE: Session para persistir cookies (session_id) en Odoo
+_ODOO_SESSION = requests.Session()
 
 
 def get_gemini_client() -> genai.Client:
@@ -204,7 +209,9 @@ def create_app():
         headers = {"Content-Type": "application/json"}
 
         _logger.info("[FLASK] -> Odoo URL=%s payload=%s", url, payload)
-        resp = requests.post(url, json=payload, headers=headers, timeout=ODOO_TIMEOUT)
+
+        # ✅ Session para que el cookie session_id se mantenga entre llamadas
+        resp = _ODOO_SESSION.post(url, json=payload, headers=headers, timeout=ODOO_TIMEOUT)
 
         body_text = resp.text or ""
         _logger.info("[FLASK] <- Odoo status=%s ct=%s body[0:300]=%r",
@@ -286,10 +293,10 @@ def create_app():
     @app.post("/api/pending")
     def api_pending():
         """
-        Espera payload:
+        JS llamará a Flask (mismo origen). Flask llama a Odoo y conserva cookies.
+        Espera:
           { action: "count" }
           { action: "list_pending", limit: 200, offset: 0 }
-        Devuelve lo que Odoo responda, envuelto en {ok: true, ...}
         """
         try:
             data = request.get_json(force=True) or {}
@@ -314,12 +321,11 @@ def create_app():
         except ValueError:
             return jsonify({"ok": False, "message": "Respuesta no válida desde Odoo."}), 502
 
-        # Si Odoo ya devuelve {ok: true, ...} lo pasamos tal cual, pero aseguramos wrapper ok=True
-        if isinstance(odoo_res, dict) and "ok" in odoo_res:
-            # devolvemos el dict directamente (pero manteniendo ok)
+        # Odoo ya devuelve {"ok": true, ...} (como tu curl).
+        if isinstance(odoo_res, dict):
             return jsonify(odoo_res)
 
-        return jsonify({"ok": True, **(odoo_res if isinstance(odoo_res, dict) else {"data": odoo_res})})
+        return jsonify({"ok": True, "data": odoo_res})
 
     # --------------- API OCR ----------------
     @app.post("/api/ocr")
