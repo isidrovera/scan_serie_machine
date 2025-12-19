@@ -528,7 +528,6 @@ window.addEventListener('load', () => {
   });
 
   // ------------------ ✅ PENDIENTES (contador + listar) ------------------
-  // ✅ Recomendado: llamar a Flask (mismo origen) para evitar CORS y cookies third-party.
   const CHECKIN_URL = '/api/pending';
 
   function logPend(...args){ console.log('[PEND]', ...args); }
