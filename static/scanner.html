@@ -40,9 +40,13 @@
       </button>
     </div>
 
+    <!-- TABS: 3 pestañas -->
     <div class="tabs" role="tablist" aria-label="Modos">
-      <button class="tab active" id="tab-codes" data-target="codes" aria-selected="true">
-        <i class="bi bi-upc-scan"></i> Códigos
+      <button class="tab active" id="tab-manual" data-target="manual" aria-selected="true">
+        <i class="bi bi-search"></i> Manual
+      </button>
+      <button class="tab" id="tab-codes" data-target="codes" aria-selected="false">
+        <i class="bi bi-upc-scan"></i> QR
       </button>
       <button class="tab" id="tab-ocr" data-target="ocr" aria-selected="false">
         <i class="bi bi-file-earmark-text"></i> OCR
@@ -51,56 +55,93 @@
   </div>
 
   <div class="grid">
-    <section class="card">
+    <!-- ========== PESTAÑA: MANUAL ========== -->
+    <section class="card" id="pane-manual">
       <div class="card-head">
-        <h2 id="panel-title"><i class="bi bi-upc-scan"></i> Lector de Códigos</h2>
-
-        <div class="controls" id="controls-codes">
-          <button class="btn primary" id="btn-start-codes"><i class="bi bi-play-fill"></i> Iniciar</button>
-          <button class="btn" id="btn-stop-codes" disabled><i class="bi bi-stop-fill"></i> Detener</button>
-        </div>
-
-        <div class="controls" id="controls-ocr" style="display:none;">
-          <button class="btn primary" id="btn-take"><i class="bi bi-camera"></i> Tomar foto</button>
-          <button class="btn warn" id="btn-retake" disabled><i class="bi bi-arrow-counterclockwise"></i> Nueva foto</button>
-          <button class="btn ok" id="btn-use-selected" disabled><i class="bi bi-check2-square"></i> Usar selección</button>
-        </div>
+        <h2 id="panel-title"><i class="bi bi-search"></i> Búsqueda Manual</h2>
       </div>
 
       <div class="card-body">
-        <div id="pane-codes">
-          <div id="qr-reader" class="video-shell" aria-label="Región de escaneo"></div>
-          <div class="status" id="status-codes">
-            <i class="bi bi-info-circle"></i> Pulsa "Iniciar" para escanear
-          </div>
+        <div class="input-group">
+          <label class="input-label">
+            <i class="bi bi-hash"></i>
+            Serie completa o últimos dígitos
+          </label>
+          <input 
+            id="manual-input" 
+            class="input" 
+            type="text"
+            inputmode="numeric" 
+            pattern="[0-9]*" 
+            maxlength="15"
+            placeholder="Ej: 1234 o X1234567890"
+            autocomplete="off" 
+            autocorrect="off" 
+            autocapitalize="off" 
+            spellcheck="false"
+          >
         </div>
 
-        <div id="pane-ocr" style="display:none;">
-          <div class="video-shell" id="ocr-video-shell" aria-live="polite" aria-label="Vista de cámara OCR">
-            <video id="ocr-video" playsinline autoplay muted></video>
-          </div>
+        <div class="controls">
+          <button class="btn primary" id="btn-manual-search">
+            <i class="bi bi-search"></i> Buscar
+          </button>
+          <button class="btn secondary" id="btn-manual-clear">
+            <i class="bi bi-x-lg"></i> Limpiar
+          </button>
+        </div>
 
-          <div class="canvas-shell" id="ocr-canvas-shell" style="display:none;">
-            <canvas id="ocr-canvas"></canvas>
-          </div>
-
-          <div id="text-layer" style="display:none; margin-top:12px;"></div>
-
-          <div class="status" id="status-ocr">
-            <i class="bi bi-info-circle"></i>
-            Apunta al número de serie y pulsa <b>Tomar foto</b>
-          </div>
-
-          <div id="selected-text-info" style="display:none; margin-top:8px;">
-            <div class="status ok">
-              <i class="bi bi-check-circle"></i>
-              <div><b>Texto seleccionado:</b> <span id="selected-text-value" class="mono"></span></div>
-            </div>
-          </div>
+        <div class="hint">
+          💡 <b>Tip:</b> Escribe de 1 a 4 dígitos numéricos para buscar coincidencias y elegir en lista.
         </div>
       </div>
     </section>
 
+    <!-- ========== PESTAÑA: CÓDIGOS QR ========== -->
+    <section class="card" id="pane-codes" style="display:none;">
+      <div class="card-head">
+        <h2><i class="bi bi-upc-scan"></i> Lector de Códigos QR</h2>
+        <div class="controls">
+          <button class="btn primary" id="btn-start-codes"><i class="bi bi-play-fill"></i> Iniciar</button>
+          <button class="btn secondary" id="btn-stop-codes" disabled><i class="bi bi-stop-fill"></i> Detener</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div id="qr-reader" class="video-shell" aria-label="Región de escaneo"></div>
+        <div class="status" id="status-codes">
+          <i class="bi bi-info-circle"></i> Pulsa "Iniciar" para escanear
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PESTAÑA: OCR ========== -->
+    <section class="card" id="pane-ocr" style="display:none;">
+      <div class="card-head">
+        <h2><i class="bi bi-file-earmark-text"></i> Reconocimiento OCR</h2>
+        <div class="controls">
+          <button class="btn primary" id="btn-take"><i class="bi bi-camera"></i> Tomar foto</button>
+          <button class="btn secondary" id="btn-retake" disabled><i class="bi bi-arrow-counterclockwise"></i> Nueva foto</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="video-shell" id="ocr-video-shell" aria-live="polite" aria-label="Vista de cámara OCR">
+          <video id="ocr-video" playsinline autoplay muted></video>
+        </div>
+
+        <div class="canvas-shell" id="ocr-canvas-shell" style="display:none;">
+          <canvas id="ocr-canvas"></canvas>
+        </div>
+
+        <div class="status" id="status-ocr">
+          <i class="bi bi-info-circle"></i>
+          Apunta al número de serie y pulsa <b>Tomar foto</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PANEL INFORMACIÓN DEL EQUIPO ========== -->
     <section class="card">
       <div class="card-head">
         <h2><i class="bi bi-check2-square"></i> Información del Equipo</h2>
@@ -115,9 +156,6 @@
         <div class="status" id="odoo-status">
           <i class="bi bi-info-circle"></i> Escanea un código para consultar
         </div>
-
-        <!-- Manual UI (inyectado por JS) -->
-        <div id="manual-mount"></div>
 
         <div id="odoo-panel" style="display:none;">
           <div class="equipo-card">
@@ -148,10 +186,6 @@
               <span>CONFIRMAR INGRESO</span>
             </button>
           </div>
-
-          <button class="btn warn" id="btn-confirm-obs" style="display:none;">
-            <i class="bi bi-chat-square-text"></i> Observación
-          </button>
         </div>
 
         <div class="pills" style="margin-top:8px;">

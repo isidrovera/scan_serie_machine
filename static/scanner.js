@@ -72,40 +72,47 @@ window.addEventListener('load', () => {
     resetResultsTable();
   });
 
-  // ------------------ tabs ------------------
+  // ------------------ tabs (3 pestañas) ------------------
+  const tabManual = document.getElementById('tab-manual');
   const tabCodes = document.getElementById('tab-codes');
   const tabOcr = document.getElementById('tab-ocr');
+  const paneManual = document.getElementById('pane-manual');
   const paneCodes = document.getElementById('pane-codes');
   const paneOcr = document.getElementById('pane-ocr');
-  const panelTitle = document.getElementById('panel-title');
-  const controlsCodes = document.getElementById('controls-codes');
-  const controlsOcr = document.getElementById('controls-ocr');
 
   function activateTab(which){
+    const isManual = which === 'manual';
     const isCodes = which === 'codes';
+    const isOcr = which === 'ocr';
+
+    tabManual.classList.toggle('active', isManual);
     tabCodes.classList.toggle('active', isCodes);
-    tabOcr.classList.toggle('active', !isCodes);
+    tabOcr.classList.toggle('active', isOcr);
+
+    tabManual.setAttribute('aria-selected', isManual ? 'true' : 'false');
     tabCodes.setAttribute('aria-selected', isCodes ? 'true' : 'false');
-    tabOcr.setAttribute('aria-selected', !isCodes ? 'true' : 'false');
+    tabOcr.setAttribute('aria-selected', isOcr ? 'true' : 'false');
+
+    paneManual.style.display = isManual ? '' : 'none';
     paneCodes.style.display = isCodes ? '' : 'none';
-    paneOcr.style.display = !isCodes ? '' : 'none';
-    controlsCodes.style.display = isCodes ? '' : 'none';
-    controlsOcr.style.display = !isCodes ? '' : 'none';
-    panelTitle.innerHTML = isCodes
-      ? '<i class="bi bi-upc-scan"></i> Lector de Códigos'
-      : '<i class="bi bi-file-earmark-text"></i> OCR con selección';
+    paneOcr.style.display = isOcr ? '' : 'none';
 
     console.log('[TAB]', which);
 
-    if(isCodes){
+    if(isManual){
+      stopCodes();
       stopOcrCamera();
-      showOcrPhoto(false);
-    }else{
+    }
+    else if(isCodes){
+      stopOcrCamera();
+    }
+    else if(isOcr){
       stopCodes();
       startOcrCamera();
     }
   }
 
+  tabManual.addEventListener('click', () => activateTab('manual'));
   tabCodes.addEventListener('click', () => activateTab('codes'));
   tabOcr.addEventListener('click', () => activateTab('ocr'));
 
@@ -116,7 +123,6 @@ window.addEventListener('load', () => {
   const odooMarca = document.getElementById('odoo-marca');
   const odooModelo = document.getElementById('odoo-modelo');
   const btnConfirmOk = document.getElementById('btn-confirm-ok');
-  const btnConfirmObs = document.getElementById('btn-confirm-obs');
 
   let lastScan = null;
 
@@ -150,7 +156,6 @@ window.addEventListener('load', () => {
   const modalPickSub = document.getElementById('modal-pick-sub');
   const modalPickList = document.getElementById('modal-pick-list');
 
-  // ✅ Pendientes (badge + modal)
   const btnPendientes = document.getElementById('btn-pendientes');
   const pendientesCountEl = document.getElementById('pendientes-count');
 
@@ -202,34 +207,9 @@ window.addEventListener('load', () => {
   let obsInput = { value: '' };
 
   // ----------- UI Manual -----------
-  const manualMount = document.getElementById('manual-mount');
-
-  const manualWrap = document.createElement('div');
-  manualWrap.className = 'panel';
-  manualWrap.innerHTML = `
-    <div class="field-label">
-      <i class="bi bi-search"></i> Búsqueda manual
-    </div>
-
-    <div class="row">
-      <input id="manual-input" class="input input-fixed" type="text"
-             inputmode="numeric" pattern="[0-9]*" maxlength="4"
-             placeholder="Serie completa o últimos 4 dígitos"
-             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-             style="flex:1; min-width:220px;">
-      <button class="btn" id="btn-manual-search"><i class="bi bi-search"></i> Buscar</button>
-      <button class="btn" id="btn-manual-clear"><i class="bi bi-x-lg"></i> Limpiar</button>
-    </div>
-
-    <div id="manual-hint" class="small">
-      Tip: escribe 1 a 4 dígitos numéricos para buscar coincidencias y elegir en lista.
-    </div>
-  `;
-  manualMount.appendChild(manualWrap);
-
-  const manualInput = manualWrap.querySelector('#manual-input');
-  const btnManualSearch = manualWrap.querySelector('#btn-manual-search');
-  const btnManualClear = manualWrap.querySelector('#btn-manual-clear');
+  const manualInput = document.getElementById('manual-input');
+  const btnManualSearch = document.getElementById('btn-manual-search');
+  const btnManualClear = document.getElementById('btn-manual-clear');
 
   manualInput.addEventListener('focus', () => {
     setTimeout(() => manualInput.scrollIntoView({ block:'nearest' }), 50);
@@ -465,8 +445,6 @@ window.addEventListener('load', () => {
     }
   }
 
-  // ✅ Botón Confirmar: abre modal
-  btnConfirmObs.style.display = 'none';
   btnConfirmOk.addEventListener('click', () => {
     if(!lastScan){
       setOdooStatus('No hay lectura para confirmar.', false, true);
@@ -527,7 +505,7 @@ window.addEventListener('load', () => {
     }
   });
 
-  // ------------------ ✅ PENDIENTES (contador + listar) ------------------
+  // ------------------ PENDIENTES (contador + listar) ------------------
   const CHECKIN_URL = '/api/pending';
 
   function logPend(...args){ console.log('[PEND]', ...args); }
@@ -779,16 +757,11 @@ window.addEventListener('load', () => {
   const ocrVideoShell = document.getElementById('ocr-video-shell');
   const ocrCanvas = document.getElementById('ocr-canvas');
   const ocrCanvasShell = document.getElementById('ocr-canvas-shell');
-  const textLayer = document.getElementById('text-layer');
   const btnTake = document.getElementById('btn-take');
   const btnRetake = document.getElementById('btn-retake');
-  const btnUseSelected = document.getElementById('btn-use-selected');
   const statusOcr = document.getElementById('status-ocr');
-  const selectedTextInfo = document.getElementById('selected-text-info');
-  const selectedTextValue = document.getElementById('selected-text-value');
 
   let ocrStream = null;
-  let currentSelectedText = '';
 
   function setStatusOcr(msg, ok=false, err=false){
     statusOcr.className = 'status' + (ok ? ' ok' : err ? ' err' : '');
@@ -816,11 +789,6 @@ window.addEventListener('load', () => {
     setStatusOcr('Cámara activa. Apunta y pulsa "Tomar foto".');
     btnTake.disabled = false;
     btnRetake.disabled = true;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
-    currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
     console.log('[OCR] cámara activa');
   }
 
@@ -856,11 +824,6 @@ window.addEventListener('load', () => {
     showOcrPhoto(true);
     btnTake.disabled = true;
     btnRetake.disabled = false;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
-    currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
 
     setStatusOcr('Enviando imagen al servidor para OCR…');
 
@@ -903,7 +866,7 @@ window.addEventListener('load', () => {
         }
       }
 
-      setStatusOcr('No se detectó serie automática. (Selección manual pendiente)', true);
+      setStatusOcr('No se detectó serie automática.', true);
     }catch(e){
       setStatusOcr('Error OCR: ' + (e && e.message ? e.message : e), false, true);
       console.error('[OCR] ERROR', e);
@@ -914,15 +877,10 @@ window.addEventListener('load', () => {
     showOcrPhoto(false);
     btnTake.disabled = false;
     btnRetake.disabled = true;
-    btnUseSelected.disabled = true;
-    selectedTextInfo.style.display = 'none';
-    currentSelectedText = '';
-    textLayer.style.display = 'none';
-    textLayer.innerHTML = '';
     setStatusOcr('Cámara activa. Apunta y pulsa "Tomar foto".');
   });
 
   // --------- estado inicial ---------
   setOdooStatus('Escanea un código o usa OCR para consultar en Odoo.');
-  activateTab('codes');
+  activateTab('manual');
 });
